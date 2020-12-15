@@ -1,19 +1,31 @@
 #!/bin/bash
 
-date=`date '+%Y-%m-%d-%H%M'`
+LANG=ja_JP.utf8
+
+pid=$$
+date=`date '+%Y-%m-%d-%H_%M'`
 playerurl=http://radiko.jp/apps/js/flash/myplayer-release.swf
-dir=`dirname $0`
+playerfile="/tmp/player.swf"
+keyfile="/tmp/authkey.png"
 authkey_value="bcd151073c03b352e1ef2fd66c32209da9ca0afa"
 
-if [ $# -eq 3 ]; then
+outdir="."
+
+if [ $# -le 1 ]; then
+  echo "usage : $0 channel_name duration(minuites) [outputdir] [prefix]"
+  exit 1
+fi
+
+if [ $# -ge 2 ]; then
   channel=$1
   DURATION=`expr $2 \* 60`
-  fname=${3}_${date}
-  output=$dir/${fname}.mp3
-  tmp=/tmp/$fname
-else
-  echo "usage : $0 channel_name duration(minuites) file_name"
-  exit 1
+fi
+if [ $# -ge 3 ]; then
+  outdir=$3
+fi
+PREFIX=${channel}
+if [ $# -ge 4 ]; then
+  PREFIX=$4
 fi
 
 #
@@ -96,10 +108,6 @@ rm -f ${channel}.xml
 #
 # rtmpdump
 #
-         #-r "rtmpe://f-radiko.smartstream.ne.jp" \
-         #--playpath "simul-stream.stream" \
-         #--app "${channel}/_definst_" \
-# Added --timeout 300(max) to avoid interruption add@2014-12-30
 rtmpdump -v \
          -r ${url_parts[0]} \
          --app ${url_parts[1]} \
@@ -107,19 +115,11 @@ rtmpdump -v \
          -W $playerurl \
          -C S:"" -C S:"" -C S:"" -C S:$authtoken \
          --live \
-         --stop $DURATION \
+         --stop ${DURATION} \
          --timeout 300 \
-         -o "$tmp"
+         -o "/tmp/${channel}_${date}"
 
-ffmpeg -loglevel quiet -y -i "$tmp" -acodec libmp3lame -ab 128k "$output"
+ffmpeg -loglevel quiet -y -i "/tmp/${channel}_${date}" -acodec libmp3lame -ab 128k "${outdir}/${PREFIX}_${date}.mp3"
 if [ $? = 0 ]; then
-  rm -f "$tmp"
+  rm -f "/tmp/${channel}_${date}"
 fi
-
-# To upload Dropbox add@2015-09-04
-$dir/Dropbox-Uploader/dropbox_uploader.sh upload $output $output
-
-if [ $? = 0 ]; then
-    rm "$output"
-fi
-
